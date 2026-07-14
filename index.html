@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Collectables Preview v2</title>
+  <link rel="stylesheet" href="app.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+  <div class="shell">
+
+    <!-- ── Top bar ── -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <span class="logo">Collectables Preview</span>
+        <span class="version-badge">v2</span>
+      </div>
+      <div class="topbar-right">
+        <span class="meta" id="metaDisplay"></span>
+        <label class="upload-btn" id="uploadBtn">
+          Load ZIP
+          <input type="file" id="zipInput" accept=".zip" />
+        </label>
+      </div>
+    </header>
+
+    <!-- ── State controls (hidden until ZIP loaded) ── -->
+    <nav class="controls" id="controls" hidden>
+
+      <div class="control-group" id="grpQuest">
+        <span class="control-label">Quest</span>
+        <div class="chips" data-group="questState">
+          <button class="chip active" data-value="active">Active</button>
+          <button class="chip" data-value="locked">Locked</button>
+          <button class="chip" data-value="unclaimed">Unclaimed</button>
+          <button class="chip" data-value="completed">Completed</button>
+        </div>
+      </div>
+
+      <div class="control-group" id="grpHeader" hidden>
+        <span class="control-label">Header</span>
+        <div class="chips" data-group="headerState">
+          <button class="chip active" data-value="active">Active</button>
+          <button class="chip" data-value="success">Success</button>
+          <button class="chip" data-value="fail">Fail</button>
+        </div>
+      </div>
+
+      <div class="control-group" id="grpRewards" hidden>
+        <span class="control-label">Rewards</span>
+        <div class="chips" data-group="rewardsState">
+          <button class="chip active" data-value="active">Active</button>
+          <button class="chip" data-value="claimed">Claimed</button>
+        </div>
+      </div>
+
+      <div class="control-group" id="grpQuestCard" hidden>
+        <span class="control-label">Quest Card</span>
+        <div class="chips" data-group="questCardState">
+          <button class="chip active" data-value="quest">Quest</button>
+          <button class="chip" data-value="claim">Claim</button>
+          <button class="chip" data-value="claimed">Claimed</button>
+          <button class="chip" data-value="timesup">Time's Up</button>
+        </div>
+      </div>
+
+      <div class="control-group" id="grpButton" hidden>
+        <span class="control-label">Button</span>
+        <div class="chips" data-group="buttonState">
+          <button class="chip active" data-value="default">Default</button>
+          <button class="chip" data-value="disabled">Disabled</button>
+          <button class="chip" data-value="hover">Hover</button>
+          <button class="chip" data-value="active">Active</button>
+        </div>
+      </div>
+
+      <div class="control-group" id="grpProgress" hidden>
+        <span class="control-label">Progress <span id="progressVal">60%</span></span>
+        <input type="range" id="progressSlider" min="0" max="100" value="60" />
+      </div>
+
+    </nav>
+
+    <!-- ── Preview area ── -->
+    <main class="preview-area" id="previewArea">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🎮</div>
+        <p class="empty-title">No ZIP loaded</p>
+        <p class="empty-sub">Export a collectables theme from the Figma plugin<br>and load the ZIP file here to preview it.</p>
+        <label class="upload-btn-large">
+          Choose ZIP file
+          <input type="file" accept=".zip" id="zipInput2" />
+        </label>
+      </div>
+      <div class="frame-wrapper" id="frameWrapper" hidden>
+        <div class="frame-scaler" id="frameScaler">
+          <div class="frame" id="frame"></div>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

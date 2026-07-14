@@ -1,0 +1,211 @@
+/* ── Reset & base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #111;
+  --surface: #1c1c1e;
+  --surface2: #2c2c2e;
+  --border: #3a3a3c;
+  --text: #f2f2f7;
+  --text-muted: #8e8e93;
+  --accent: #6b72f5;
+  --accent-text: #fff;
+  --chip-active-bg: #6b72f5;
+  --chip-active-text: #fff;
+  --chip-bg: #2c2c2e;
+  --chip-text: #aeaeb2;
+  --chip-hover: #3a3a3c;
+  --topbar-h: 52px;
+  --controls-h: 56px;
+  --radius: 8px;
+  --radius-sm: 6px;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; }
+
+/* ── Shell ── */
+.shell { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+/* ── Top bar ── */
+.topbar {
+  height: var(--topbar-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  flex-shrink: 0;
+  gap: 12px;
+}
+.topbar-left { display: flex; align-items: center; gap: 8px; }
+.logo { font-weight: 600; font-size: 14px; color: var(--text); }
+.version-badge {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  letter-spacing: 0.5px;
+}
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.meta { font-size: 12px; color: var(--text-muted); }
+
+/* ── Upload button ── */
+.upload-btn {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  transition: opacity 0.15s;
+  user-select: none;
+}
+.upload-btn:hover { opacity: 0.85; }
+.upload-btn input[type="file"] { display: none; }
+
+/* ── Controls nav ── */
+.controls {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  min-height: 48px;
+}
+.controls::-webkit-scrollbar { height: 4px; }
+.controls::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.control-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: fit-content;
+}
+
+/* ── Chips ── */
+.chips { display: flex; gap: 4px; }
+.chip {
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.chip:hover { background: var(--chip-hover); color: var(--text); }
+.chip.active {
+  background: var(--chip-active-bg);
+  color: var(--chip-active-text);
+  border-color: var(--chip-active-bg);
+}
+
+/* ── Progress slider ── */
+#progressSlider {
+  width: 100px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+#progressVal { color: var(--accent); font-weight: 600; margin-left: 4px; }
+
+/* ── Preview area ── */
+.preview-area {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+/* ── Empty state ── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  text-align: center;
+}
+.empty-icon { font-size: 48px; margin-bottom: 4px; }
+.empty-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.empty-sub { font-size: 13px; line-height: 1.6; }
+.upload-btn-large {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  margin-top: 8px;
+  transition: opacity 0.15s;
+  user-select: none;
+}
+.upload-btn-large:hover { opacity: 0.85; }
+.upload-btn-large input[type="file"] { display: none; }
+
+/* ── Frame wrapper + scaler ── */
+.frame-wrapper {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+.frame-scaler {
+  transform-origin: top center;
+  /* width/height set by JS */
+}
+.frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: 0 8px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08);
+  background: #000;
+  /* width/height set by JS */
+}
+
+/* ── Elements rendered inside .frame ── */
+.el {
+  position: absolute;
+  overflow: hidden;
+}
+.el img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+/* Text placeholder */
+.el.text-el {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+/* Progress elements */
+.el.progress-bg-el { border-radius: 100px; }
+.el.progress-fill-el { border-radius: 100px; transition: width 0.2s; }

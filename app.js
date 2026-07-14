@@ -52,12 +52,11 @@ async function loadZip(file) {
     return;
   }
 
-  // Find positions.json (may be at root or inside a folder)
-  let jsonFile = zip.file('positions.json');
-  if (!jsonFile) {
-    const matches = zip.file(/positions\.json$/);
-    jsonFile = matches[0] ?? null;
-  }
+  // Prefer positions_full.json (includes image URLs); fall back to positions.json
+  let jsonFile = zip.file('positions_full.json')
+             ?? zip.file('positions.json')
+             ?? zip.file(/positions.*\.json$/)[0]
+             ?? null;
   if (!jsonFile) {
     alert('positions.json not found in ZIP.');
     return;

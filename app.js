@@ -372,13 +372,30 @@ function extractBounds(el) {
   return null;
 }
 
+/**
+ * Convert any color value to a CSS color string.
+ * Handles both hex strings ("#rrggbb") and RGBA objects {r,g,b,a} (0–1 range)
+ * as exported by the plugin's raw passthrough elements (TEXT, RECTANGLE).
+ */
+function colorToCSS(color) {
+  if (!color) return 'transparent';
+  if (typeof color === 'string') return color;
+  const r = Math.round((color.r ?? 0) * 255);
+  const g = Math.round((color.g ?? 0) * 255);
+  const b = Math.round((color.b ?? 0) * 255);
+  const a = typeof color.a === 'number' ? color.a : 1;
+  return `rgba(${r},${g},${b},${a})`;
+}
+
 function applyFill(el, fill) {
   if (!fill) return;
   if (fill.type === 'solid') {
-    el.style.background = fill.color;
+    el.style.background = colorToCSS(fill.color);
   } else if (fill.type === 'gradient' && fill.gradient?.stops?.length) {
-    const stops = fill.gradient.stops.map(s => `${s.color} ${(s.position * 100).toFixed(1)}%`).join(', ');
-    const rot   = fill.gradient.rotation ?? 90;
+    const stops = fill.gradient.stops
+      .map(s => `${colorToCSS(s.color)} ${(s.position * 100).toFixed(1)}%`)
+      .join(', ');
+    const rot = fill.gradient.rotation ?? 90;
     el.style.background = `linear-gradient(${rot}deg, ${stops})`;
   }
 }
@@ -391,15 +408,59 @@ function applyRectStyle(el, rect) {
   }
 }
 
+/**
+ * Apply text styling from a TEXT element (raw IconTextStyleEntry) or a
+ * converted timer-style element (ExportFrameInfo.textStyle).
+ *
+ * TEXT elements use: ts.fill {type,color/gradient}, ts.stroke, ts.dropShadow,
+ *                    ts.fontFamily, ts.letterSpacingPx, ts.fontSize, ts.fontWeight
+ * Timer elements use: ts.color (hex string), ts.fontSize, ts.fontWeight, etc.
+ */
 function applyTextStyle(el, data) {
   const ts = data.textStyle ?? data;
   if (!ts) return;
+
   if (ts.fontSize)   el.style.fontSize   = `${ts.fontSize}px`;
-  if (ts.color)      el.style.color      = ts.color;
-  if (ts.fontWeight) el.style.fontWeight = ts.fontWeight;
+  if (ts.fontWeight) el.style.fontWeight = `${ts.fontWeight}`;
+  if (ts.fontFamily) el.style.fontFamily = `"${ts.fontFamily}", sans-serif`;
+  if (ts.letterSpacingPx != null) el.style.letterSpacing = `${ts.letterSpacingPx}px`;
   if (ts.textAlignHorizontal) el.style.textAlign = ts.textAlignHorizontal.toLowerCase();
   el.style.lineHeight = '1.2';
   el.style.overflow = 'hidden';
+
+  // ── Fill ──────────────────────────────────────────────────────────────────
+  const fill = ts.fill;
+  if (fill?.type === 'gradient' && fill.gradient?.stops?.length) {
+    // Gradient text via background-clip trick
+    const stops = fill.gradient.stops
+      .map(s => `${colorToCSS(s.color)} ${(s.position * 100).toFixed(1)}%`)
+      .join(', ');
+    const rot = fill.gradient.rotation ?? 180;
+    el.style.background = `linear-gradient(${rot}deg, ${stops})`;
+    el.style.webkitBackgroundClip = 'text';
+    el.style.backgroundClip = 'text';
+    el.style.webkitTextFillColor = 'transparent';
+    el.style.color = 'transparent';
+  } else if (fill?.type === 'solid') {
+    el.style.color = colorToCSS(fill.color);
+  } else if (ts.color) {
+    // Timer-style data: color already converted to hex by convertFrameForExport
+    el.style.color = ts.color;
+  }
+
+  // ── Drop shadow → text-shadow ─────────────────────────────────────────────
+  // dropShadow.color is a hex string (DropShadowEffect type)
+  if (ts.dropShadow) {
+    const ds = ts.dropShadow;
+    el.style.textShadow = `${ds.x ?? 0}px ${ds.y ?? 0}px ${ds.blur ?? 0}px ${ds.color}`;
+  }
+
+  // ── Stroke → -webkit-text-stroke ─────────────────────────────────────────
+  // stroke.color is a hex string (from extractTextStyle colorToHex call)
+  // Skip for gradient fills — CSS doesn't support both simultaneously
+  if (ts.stroke?.color && fill?.type !== 'gradient') {
+    el.style.webkitTextStroke = `${ts.stroke.width ?? 1}px ${ts.stroke.color}`;
+  }
 }
 
 // ── Event wiring ──────────────────────────────────────────────────────────────

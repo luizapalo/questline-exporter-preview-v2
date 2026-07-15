@@ -505,19 +505,32 @@ function applyTextStyle(el, data) {
     el.style.color = ts.color;
   }
 
-  // ── Drop shadow → text-shadow ─────────────────────────────────────────────
-  // dropShadow.color is a hex string (DropShadowEffect type)
-  if (ts.dropShadow) {
-    const ds = ts.dropShadow;
-    el.style.textShadow = `${ds.x ?? 0}px ${ds.y ?? 0}px ${ds.blur ?? 0}px ${ds.color}`;
+  // ── Stroke + Drop shadow → text-shadow / webkit-text-stroke ──────────────
+  // For gradient fills, background-clip:text conflicts with -webkit-text-stroke,
+  // so we simulate an outer stroke by stacking multi-direction text-shadows at 0 blur.
+  // For solid fills we use -webkit-text-stroke + paint-order (cleaner at large widths).
+  const shadowParts = [];
+
+  if (ts.stroke?.color && fill?.type === 'gradient') {
+    const sw = Math.round(ts.stroke.width ?? 1);
+    const sc = ts.stroke.color;
+    for (let x = -sw; x <= sw; x++) {
+      for (let y = -sw; y <= sw; y++) {
+        if (x === 0 && y === 0) continue;
+        shadowParts.push(`${x}px ${y}px 0 ${sc}`);
+      }
+    }
   }
 
-  // ── Stroke → outer stroke via paint-order ────────────────────────────────
-  // stroke.color is a hex string (from extractTextStyle colorToHex call).
-  // -webkit-text-stroke alone renders centered (half inside, half outside).
-  // paint-order: stroke fill forces the stroke to paint FIRST so the fill
-  // covers the inner half — giving a true outer-stroke appearance.
-  // Skip for gradient fills: background-clip:text conflicts with text-stroke.
+  if (ts.dropShadow) {
+    const ds = ts.dropShadow;
+    shadowParts.push(`${ds.x ?? 0}px ${ds.y ?? 0}px ${ds.blur ?? 0}px ${ds.color}`);
+  }
+
+  if (shadowParts.length > 0) {
+    el.style.textShadow = shadowParts.join(', ');
+  }
+
   if (ts.stroke?.color && fill?.type !== 'gradient') {
     el.style.webkitTextStroke = `${ts.stroke.width ?? 1}px ${ts.stroke.color}`;
     el.style.paintOrder = 'stroke fill';

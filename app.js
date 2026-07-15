@@ -355,12 +355,7 @@ function renderProgressText() {
   if (!t) return;
   const bounds = extractBounds(t);
   if (!bounds) return;
-  const el = document.createElement('div');
-  el.className = 'el text-el';
-  placeCenter(el, bounds, 1067);
-  applyTextStyle(el, t);
-  el.textContent = `${previewState.progress}%`;
-  frame.appendChild(el);
+  append(buildTextEl(t, `${previewState.progress}%`, bounds, 1067));
 }
 
 function renderQuestTitle() {
@@ -368,12 +363,7 @@ function renderQuestTitle() {
   if (!t) return;
   const bounds = extractBounds(t);
   if (!bounds) return;
-  const el = document.createElement('div');
-  el.className = 'el text-el';
-  placeCenter(el, bounds, 1070);
-  applyTextStyle(el, t);
-  el.textContent = 'Quest Title';
-  frame.appendChild(el);
+  append(buildTextEl(t, 'Quest Title', bounds, 1070));
 }
 
 function renderQuestDescription() {
@@ -381,12 +371,7 @@ function renderQuestDescription() {
   if (!t) return;
   const bounds = extractBounds(t);
   if (!bounds) return;
-  const el = document.createElement('div');
-  el.className = 'el text-el';
-  placeCenter(el, bounds, 1071);
-  applyTextStyle(el, t);
-  el.textContent = 'Quest description goes here.';
-  frame.appendChild(el);
+  append(buildTextEl(t, 'Quest description goes here.', bounds, 1071));
 }
 
 function renderTimer() {
@@ -505,36 +490,114 @@ function applyTextStyle(el, data) {
     el.style.color = ts.color;
   }
 
-  // ── Stroke + Drop shadow → text-shadow / webkit-text-stroke ──────────────
-  // For gradient fills, background-clip:text conflicts with -webkit-text-stroke,
-  // so we simulate an outer stroke by stacking multi-direction text-shadows at 0 blur.
-  // For solid fills we use -webkit-text-stroke + paint-order (cleaner at large widths).
-  const shadowParts = [];
-
-  if (ts.stroke?.color && fill?.type === 'gradient') {
-    const sw = Math.round(ts.stroke.width ?? 1);
-    const sc = ts.stroke.color;
-    for (let x = -sw; x <= sw; x++) {
-      for (let y = -sw; y <= sw; y++) {
-        if (x === 0 && y === 0) continue;
-        shadowParts.push(`${x}px ${y}px 0 ${sc}`);
-      }
-    }
-  }
-
+  // ── Drop shadow → text-shadow ─────────────────────────────────────────────
   if (ts.dropShadow) {
     const ds = ts.dropShadow;
-    shadowParts.push(`${ds.x ?? 0}px ${ds.y ?? 0}px ${ds.blur ?? 0}px ${ds.color}`);
+    el.style.textShadow = `${ds.x ?? 0}px ${ds.y ?? 0}px ${ds.blur ?? 0}px ${ds.color}`;
   }
 
-  if (shadowParts.length > 0) {
-    el.style.textShadow = shadowParts.join(', ');
-  }
-
+  // ── Stroke → outer stroke via paint-order ────────────────────────────────
+  // gradient fills: skip here — handled via SVG in buildSVGTextEl instead.
   if (ts.stroke?.color && fill?.type !== 'gradient') {
     el.style.webkitTextStroke = `${ts.stroke.width ?? 1}px ${ts.stroke.color}`;
     el.style.paintOrder = 'stroke fill';
   }
+}
+
+// ── SVG text builder (gradient fill + stroke) ─────────────────────────────────
+
+/**
+ * Build a positioned text element.
+ * When the element has both a gradient fill AND a stroke, uses an SVG <text>
+ * which supports gradient + paint-order natively (no background-clip conflict).
+ * Otherwise falls back to a styled <div>.
+ */
+function buildTextEl(data, textContent, bounds, zIndex) {
+  const ts = data.textStyle ?? data;
+  const fill = ts.fill;
+  if (fill?.type === 'gradient' && ts.stroke?.color) {
+    return buildSVGTextEl(ts, fill, textContent, bounds, zIndex);
+  }
+  const el = document.createElement('div');
+  el.className = 'el text-el';
+  placeCenter(el, bounds, zIndex);
+  applyTextStyle(el, data);
+  el.textContent = textContent;
+  return el;
+}
+
+function buildSVGTextEl(ts, fill, textContent, bounds, zIndex) {
+  const container = document.createElement('div');
+  container.className = 'el';
+  placeCenter(container, bounds, zIndex);
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('width', bounds.width);
+  svg.setAttribute('height', bounds.height);
+  svg.style.overflow = 'visible';
+  svg.style.display = 'block';
+
+  // ── Gradient definition ────────────────────────────────────────────────
+  const defs = document.createElementNS(ns, 'defs');
+  const gradId = `tg-${Math.random().toString(36).slice(2)}`;
+  const grad = document.createElementNS(ns, 'linearGradient');
+  grad.id = gradId;
+  grad.setAttribute('gradientUnits', 'objectBoundingBox');
+
+  // Convert Figma rotation to SVG gradient vector (Figma 180° = CSS top-to-bottom)
+  const rot = fill.gradient.rotation ?? 180;
+  const rad = (rot - 90) * Math.PI / 180;
+  grad.setAttribute('x1', (0.5 - 0.5 * Math.cos(rad)).toFixed(4));
+  grad.setAttribute('y1', (0.5 - 0.5 * Math.sin(rad)).toFixed(4));
+  grad.setAttribute('x2', (0.5 + 0.5 * Math.cos(rad)).toFixed(4));
+  grad.setAttribute('y2', (0.5 + 0.5 * Math.sin(rad)).toFixed(4));
+
+  fill.gradient.stops.forEach(stop => {
+    const s = document.createElementNS(ns, 'stop');
+    s.setAttribute('offset', `${(stop.position * 100).toFixed(1)}%`);
+    s.setAttribute('stop-color', colorToCSS(stop.color));
+    grad.appendChild(s);
+  });
+  defs.appendChild(grad);
+  svg.appendChild(defs);
+
+  // ── Text element ───────────────────────────────────────────────────────
+  const textEl = document.createElementNS(ns, 'text');
+
+  const align = (ts.textAlignHorizontal ?? 'CENTER').toUpperCase();
+  const anchorMap = { LEFT: 'start', CENTER: 'middle', RIGHT: 'end' };
+  const xMap = { LEFT: 0, CENTER: bounds.width / 2, RIGHT: bounds.width };
+  textEl.setAttribute('x', xMap[align] ?? bounds.width / 2);
+  textEl.setAttribute('y', bounds.height / 2);
+  textEl.setAttribute('text-anchor', anchorMap[align] ?? 'middle');
+  textEl.setAttribute('dominant-baseline', 'middle');
+
+  if (ts.fontSize)       textEl.setAttribute('font-size',   `${ts.fontSize}px`);
+  if (ts.fontWeight)     textEl.setAttribute('font-weight', ts.fontWeight);
+  if (ts.fontFamily)     textEl.setAttribute('font-family', `"${ts.fontFamily}", sans-serif`);
+  if (ts.letterSpacingPx) textEl.setAttribute('letter-spacing', `${ts.letterSpacingPx}px`);
+
+  textEl.setAttribute('fill', `url(#${gradId})`);
+
+  // Stroke: SVG stroke is centered; doubling the width + paint-order:stroke fill
+  // makes the inner half get covered by the fill, leaving a true outer stroke.
+  if (ts.stroke?.color) {
+    textEl.setAttribute('stroke', ts.stroke.color);
+    textEl.setAttribute('stroke-width', (ts.stroke.width ?? 1) * 2);
+    textEl.setAttribute('paint-order', 'stroke fill');
+  }
+
+  if (ts.dropShadow) {
+    const ds = ts.dropShadow;
+    container.style.filter =
+      `drop-shadow(${ds.x ?? 0}px ${ds.y ?? 0}px ${ds.blur ?? 0}px ${ds.color})`;
+  }
+
+  textEl.textContent = textContent;
+  svg.appendChild(textEl);
+  container.appendChild(svg);
+  return container;
 }
 
 // ── Event wiring ──────────────────────────────────────────────────────────────

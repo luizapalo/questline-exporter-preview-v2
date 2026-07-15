@@ -580,11 +580,13 @@ function buildSVGTextEl(ts, fill, textContent, bounds, zIndex) {
 
   textEl.setAttribute('fill', `url(#${gradId})`);
 
-  // Stroke: SVG stroke is centered; doubling the width + paint-order:stroke fill
-  // makes the inner half get covered by the fill, leaving a true outer stroke.
+  // Stroke: SVG stroke is centered; with paint-order:stroke fill the inner half
+  // is covered by the fill, leaving the outer half visible.
+  // We use (width * 2) so the visible outer ring = the designed width.
+  // A minimum of 6 is enforced so a thin Figma stroke still reads clearly at preview scale.
   if (ts.stroke?.color) {
     textEl.setAttribute('stroke', ts.stroke.color);
-    textEl.setAttribute('stroke-width', (ts.stroke.width ?? 1) * 2);
+    textEl.setAttribute('stroke-width', Math.max((ts.stroke.width ?? 1) * 2, 6));
     textEl.setAttribute('paint-order', 'stroke fill');
   }
 

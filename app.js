@@ -22,7 +22,6 @@ const previewState = {
 
 let json = null;       // parsed positions.json
 let imgUrls = {};      // filename → object URL
-let currentFrameScale = 1; // CSS transform scale applied to frameScaler
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 
@@ -146,13 +145,12 @@ function render() {
   const fw = json.frameSize?.width  ?? 366;
   const fh = json.frameSize?.height ?? 661;
 
-  // Scale to fit the preview area (leave some padding)
+  // Scale to fill the preview area (no upper cap — allows zooming above 1:1
+  // so the design looks proportionally similar to Figma at its natural zoom).
   const area   = document.querySelector('.preview-area');
   const maxW   = area.clientWidth  - 48;
   const maxH   = area.clientHeight - 48;
-  const scale  = Math.min(maxW / fw, maxH / fh, 1);
-
-  currentFrameScale = scale;
+  const scale  = Math.min(maxW / fw, maxH / fh);
 
   frame.style.width  = `${fw}px`;
   frame.style.height = `${fh}px`;
@@ -470,6 +468,9 @@ function applyTextStyle(el, data) {
   if (ts.fontFamily) el.style.fontFamily = `"${ts.fontFamily}", sans-serif`;
   if (ts.letterSpacingPx != null) el.style.letterSpacing = `${ts.letterSpacingPx}px`;
   if (ts.textAlignHorizontal) el.style.textAlign = ts.textAlignHorizontal.toLowerCase();
+  if (ts.textCase === 'UPPER') el.style.textTransform = 'uppercase';
+  else if (ts.textCase === 'LOWER') el.style.textTransform = 'lowercase';
+  else if (ts.textCase === 'TITLE') el.style.textTransform = 'capitalize';
   el.style.lineHeight = '1.2';
   el.style.overflow = 'hidden';
 
@@ -580,22 +581,19 @@ function buildSVGTextEl(ts, fill, textContent, bounds, zIndex) {
   if (ts.fontWeight)     textEl.setAttribute('font-weight', ts.fontWeight);
   if (ts.fontFamily)     textEl.setAttribute('font-family', `"${ts.fontFamily}", sans-serif`);
   if (ts.letterSpacingPx) textEl.setAttribute('letter-spacing', `${ts.letterSpacingPx}px`);
+  if (ts.textCase === 'UPPER') textEl.style.textTransform = 'uppercase';
+  else if (ts.textCase === 'LOWER') textEl.style.textTransform = 'lowercase';
+  else if (ts.textCase === 'TITLE') textEl.style.textTransform = 'capitalize';
 
   textEl.setAttribute('fill', `url(#${gradId})`);
 
-  // Figma "Outside" stroke: the full stroke width is drawn outside the glyph edge.
-  // SVG stroke is centered, so we double the width and use paint-order:stroke fill —
-  // the fill paints on top and covers the inner half, leaving the outer half visible.
-  //
-  // Scale compensation: the SVG lives inside a CSS-transformed container (frameScaler).
-  // A stroke of W design-units becomes W*scale CSS pixels after the transform.
-  // We divide by currentFrameScale so the visible outer stroke is always W CSS pixels,
-  // matching exactly what Figma renders at its Outside alignment.
+  // Figma "Outside" stroke: full stroke width drawn outside the glyph edge.
+  // SVG stroke is centered; doubling + paint-order:stroke fill makes the fill
+  // cover the inner half, leaving only the outer half visible — matching Figma exactly.
+  // The stroke scales naturally with the frame's CSS transform, just like in Figma at zoom.
   if (ts.stroke?.color) {
-    const designedWidth = ts.stroke.width ?? 1;
-    const svgStrokeWidth = (designedWidth * 2) / currentFrameScale;
     textEl.setAttribute('stroke', ts.stroke.color);
-    textEl.setAttribute('stroke-width', svgStrokeWidth);
+    textEl.setAttribute('stroke-width', (ts.stroke.width ?? 1) * 2);
     textEl.setAttribute('paint-order', 'stroke fill');
   }
 

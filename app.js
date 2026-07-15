@@ -518,20 +518,20 @@ function applyTextStyle(el, data) {
 function buildTextEl(data, textContent, bounds, zIndex) {
   const ts = data.textStyle ?? data;
   const fill = ts.fill;
-  if (fill?.type === 'gradient' && ts.stroke?.color) {
+  if (ts.stroke?.color) {
     return buildSVGTextEl(ts, fill, textContent, bounds, zIndex);
   }
   const el = document.createElement('div');
   el.className = 'el text-el';
   placeCenter(el, bounds, zIndex);
   applyTextStyle(el, data);
-  el.textContent = textContent;
+  el.textContent = transformTextCase(textContent, ts.textCase);
   return el;
 }
 
 function buildSVGTextEl(ts, fill, textContent, bounds, zIndex) {
   const container = document.createElement('div');
-  container.className = 'el';
+  container.className = 'el text-el';
   placeCenter(container, bounds, zIndex);
 
   const ns = 'http://www.w3.org/2000/svg';
@@ -541,29 +541,36 @@ function buildSVGTextEl(ts, fill, textContent, bounds, zIndex) {
   svg.style.overflow = 'visible';
   svg.style.display = 'block';
 
-  // ── Gradient definition ────────────────────────────────────────────────
-  const defs = document.createElementNS(ns, 'defs');
-  const gradId = `tg-${Math.random().toString(36).slice(2)}`;
-  const grad = document.createElementNS(ns, 'linearGradient');
-  grad.id = gradId;
-  grad.setAttribute('gradientUnits', 'objectBoundingBox');
+  let svgFill = 'currentColor';
+  if (fill?.type === 'gradient' && fill.gradient?.stops?.length) {
+    const defs = document.createElementNS(ns, 'defs');
+    const gradId = `tg-${Math.random().toString(36).slice(2)}`;
+    const grad = document.createElementNS(ns, 'linearGradient');
+    grad.id = gradId;
+    grad.setAttribute('gradientUnits', 'objectBoundingBox');
 
-  // Convert Figma rotation to SVG gradient vector (Figma 180° = CSS top-to-bottom)
-  const rot = fill.gradient.rotation ?? 180;
-  const rad = (rot - 90) * Math.PI / 180;
-  grad.setAttribute('x1', (0.5 - 0.5 * Math.cos(rad)).toFixed(4));
-  grad.setAttribute('y1', (0.5 - 0.5 * Math.sin(rad)).toFixed(4));
-  grad.setAttribute('x2', (0.5 + 0.5 * Math.cos(rad)).toFixed(4));
-  grad.setAttribute('y2', (0.5 + 0.5 * Math.sin(rad)).toFixed(4));
+    // Convert Figma rotation to SVG gradient vector (Figma 180° = top-to-bottom)
+    const rot = fill.gradient.rotation ?? 180;
+    const rad = (rot - 90) * Math.PI / 180;
+    grad.setAttribute('x1', (0.5 - 0.5 * Math.cos(rad)).toFixed(4));
+    grad.setAttribute('y1', (0.5 - 0.5 * Math.sin(rad)).toFixed(4));
+    grad.setAttribute('x2', (0.5 + 0.5 * Math.cos(rad)).toFixed(4));
+    grad.setAttribute('y2', (0.5 + 0.5 * Math.sin(rad)).toFixed(4));
 
-  fill.gradient.stops.forEach(stop => {
-    const s = document.createElementNS(ns, 'stop');
-    s.setAttribute('offset', `${(stop.position * 100).toFixed(1)}%`);
-    s.setAttribute('stop-color', colorToCSS(stop.color));
-    grad.appendChild(s);
-  });
-  defs.appendChild(grad);
-  svg.appendChild(defs);
+    fill.gradient.stops.forEach(stop => {
+      const s = document.createElementNS(ns, 'stop');
+      s.setAttribute('offset', `${(stop.position * 100).toFixed(1)}%`);
+      s.setAttribute('stop-color', colorToCSS(stop.color));
+      grad.appendChild(s);
+    });
+    defs.appendChild(grad);
+    svg.appendChild(defs);
+    svgFill = `url(#${gradId})`;
+  } else if (fill?.type === 'solid') {
+    svgFill = colorToCSS(fill.color);
+  } else if (ts.color) {
+    svgFill = colorToCSS(ts.color);
+  }
 
   // ── Text element ───────────────────────────────────────────────────────
   const textEl = document.createElementNS(ns, 'text');
@@ -580,20 +587,17 @@ function buildSVGTextEl(ts, fill, textContent, bounds, zIndex) {
   if (ts.fontWeight)     textEl.setAttribute('font-weight', ts.fontWeight);
   if (ts.fontFamily)     textEl.setAttribute('font-family', `"${ts.fontFamily}", sans-serif`);
   if (ts.letterSpacingPx) textEl.setAttribute('letter-spacing', `${ts.letterSpacingPx}px`);
-  if (ts.textCase === 'UPPER') textEl.style.textTransform = 'uppercase';
-  else if (ts.textCase === 'LOWER') textEl.style.textTransform = 'lowercase';
-  else if (ts.textCase === 'TITLE') textEl.style.textTransform = 'capitalize';
+  textEl.setAttribute('fill', svgFill);
 
-  textEl.setAttribute('fill', `url(#${gradId})`);
-
-  // Figma "Outside" stroke: full stroke width drawn outside the glyph edge.
-  // SVG stroke is centered; doubling + paint-order:stroke fill makes the fill
-  // cover the inner half, leaving only the outer half visible — matching Figma exactly.
-  // The stroke scales naturally with the frame's CSS transform, just like in Figma at zoom.
+  // SVG strokes are centered. For Figma OUTSIDE alignment, double the stroke
+  // and paint the fill last so it hides the inner half. A 1px Figma outside
+  // stroke therefore remains a full 1px outside the glyph, not 0.5px.
   if (ts.stroke?.color) {
+    const alignment = ts.stroke.alignment ?? 'OUTSIDE';
+    const width = ts.stroke.width ?? 1;
     textEl.setAttribute('stroke', ts.stroke.color);
-    textEl.setAttribute('stroke-width', (ts.stroke.width ?? 1) * 2);
-    textEl.setAttribute('paint-order', 'stroke fill');
+    textEl.setAttribute('stroke-width', alignment === 'OUTSIDE' ? width * 2 : width);
+    textEl.setAttribute('paint-order', alignment === 'OUTSIDE' ? 'stroke fill' : 'fill stroke');
   }
 
   if (ts.dropShadow) {
@@ -602,10 +606,19 @@ function buildSVGTextEl(ts, fill, textContent, bounds, zIndex) {
       `drop-shadow(${ds.x ?? 0}px ${ds.y ?? 0}px ${ds.blur ?? 0}px ${ds.color})`;
   }
 
-  textEl.textContent = textContent;
+  textEl.textContent = transformTextCase(textContent, ts.textCase);
   svg.appendChild(textEl);
   container.appendChild(svg);
   return container;
+}
+
+function transformTextCase(value, textCase) {
+  if (textCase === 'UPPER') return value.toUpperCase();
+  if (textCase === 'LOWER') return value.toLowerCase();
+  if (textCase === 'TITLE') {
+    return value.replace(/\b\w/g, character => character.toUpperCase());
+  }
+  return value;
 }
 
 // ── Event wiring ──────────────────────────────────────────────────────────────

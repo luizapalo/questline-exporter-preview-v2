@@ -512,11 +512,15 @@ function applyTextStyle(el, data) {
     el.style.textShadow = `${ds.x ?? 0}px ${ds.y ?? 0}px ${ds.blur ?? 0}px ${ds.color}`;
   }
 
-  // ── Stroke → -webkit-text-stroke ─────────────────────────────────────────
-  // stroke.color is a hex string (from extractTextStyle colorToHex call)
-  // Skip for gradient fills — CSS doesn't support both simultaneously
+  // ── Stroke → outer stroke via paint-order ────────────────────────────────
+  // stroke.color is a hex string (from extractTextStyle colorToHex call).
+  // -webkit-text-stroke alone renders centered (half inside, half outside).
+  // paint-order: stroke fill forces the stroke to paint FIRST so the fill
+  // covers the inner half — giving a true outer-stroke appearance.
+  // Skip for gradient fills: background-clip:text conflicts with text-stroke.
   if (ts.stroke?.color && fill?.type !== 'gradient') {
     el.style.webkitTextStroke = `${ts.stroke.width ?? 1}px ${ts.stroke.color}`;
+    el.style.paintOrder = 'stroke fill';
   }
 }
 

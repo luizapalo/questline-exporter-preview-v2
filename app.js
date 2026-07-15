@@ -99,6 +99,34 @@ function showControls() {
   document.getElementById('grpQuestCard').hidden = !json.questCard;
   document.getElementById('grpButton').hidden    = !(json.buttonPrimary || json.buttonClaim || json.buttonClose);
   document.getElementById('grpProgress').hidden  = !(json.progressBg || json.progressFill || json.progressText);
+
+  // Dynamically load any Google Fonts referenced in the JSON
+  loadFontsFromJson();
+}
+
+/**
+ * Scan JSON for fontFamily values and inject them as Google Fonts.
+ * Handles fonts not pre-loaded in index.html (e.g. Lato, Oswald, etc.)
+ */
+function loadFontsFromJson() {
+  const families = new Set();
+  const textFields = ['questTitle', 'questDescription', 'progressText'];
+  textFields.forEach(field => {
+    const ff = json[field]?.fontFamily;
+    if (ff) families.add(ff);
+  });
+  if (json.timer?.textStyle?.fontFamily) families.add(json.timer.textStyle.fontFamily);
+
+  families.forEach(family => {
+    const id = `gfont-${family.replace(/\s+/g, '-')}`;
+    if (document.getElementById(id)) return; // already loaded
+    const url = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}:wght@300;400;500;600;700;800;900&display=swap`;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = url;
+    document.head.appendChild(link);
+  });
 }
 
 function showMeta() {
@@ -288,9 +316,27 @@ function renderProgressFill() {
   if (!fill) return;
   const bounds = extractBounds(fill);
   if (!bounds) return;
+
+  // Guard: if the exported element is tiny (designer dropped it at default size
+  // without resizing), show a placeholder so it's at least visible in the preview.
+  const isTiny = bounds.width < 20 || bounds.height < 4;
+
   const el = document.createElement('div');
   el.className = 'el progress-fill-el';
-  // Position at left edge of bg, width = progress%
+
+  if (isTiny) {
+    // Fallback: render a 200×8px green bar at the progressBg position (or progressText position)
+    const bgBounds = extractBounds(json.progressBg) ?? bounds;
+    const fallback = { x: bgBounds.x, y: bgBounds.y, width: 200, height: 8 };
+    const pct = previewState.progress / 100;
+    placeCenter(el, { ...fallback, width: fallback.width * pct }, 1066);
+    el.style.left = `${fallback.x - fallback.width / 2}px`;
+    el.style.background = '#00e956';
+    el.style.borderRadius = '100px';
+    frame.appendChild(el);
+    return;
+  }
+
   const pct = previewState.progress / 100;
   placeCenter(el, { ...bounds, width: bounds.width * pct }, 1066);
   el.style.left = `${bounds.x - bounds.width / 2}px`;  // pin to left edge

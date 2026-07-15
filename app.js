@@ -165,11 +165,17 @@ function render() {
   renderQuestCard();
   renderCollectables();
   renderHeader();
-  renderProgressBg();
-  renderProgressFill();
-  renderProgressText();
-  renderQuestTitle();
-  renderQuestDescription();
+
+  // Quest-card-specific elements — only visible when the card shows the active quest state.
+  // For 'claim', 'claimed', 'timesup' the card image itself communicates the state; these
+  // dynamic overlays (title, description, progress) are hidden.
+  if (previewState.questCardState === 'quest') {
+    renderProgressBg();
+    renderProgressFill();
+    renderProgressText();
+    renderQuestTitle();
+    renderQuestDescription();
+  }
   renderTimer();
   renderButton(json.buttonClose,   'button-close',   1053);
   renderButton(json.buttonClaim,   'button-claim',   1054);
@@ -448,7 +454,12 @@ function applyFill(el, fill) {
 
 function applyRectStyle(el, rect) {
   applyFill(el, rect.backgroundFill ?? rect.fill);
-  if (rect.borderRadius != null) el.style.borderRadius = `${rect.borderRadius}px`;
+  // Only override border-radius when Figma explicitly sets one (> 0).
+  // Progress bar elements get their pill shape from the CSS class (border-radius: 100px);
+  // a borderRadius: 0 from JSON (Figma's parent-clip pattern) must not override that.
+  if (rect.borderRadius != null && rect.borderRadius > 0) {
+    el.style.borderRadius = `${rect.borderRadius}px`;
+  }
   if (rect.stroke?.color) {
     el.style.outline = `${rect.stroke.width ?? 1}px solid ${rect.stroke.color}`;
   }

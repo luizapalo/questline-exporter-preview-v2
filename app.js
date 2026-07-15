@@ -16,6 +16,7 @@ const previewState = {
   headerState: 'active',
   rewardsState: 'active',
   questCardState: 'quest',
+  buttonType: 'primary',
   buttonState: 'default',
   progress: 60,
 };
@@ -97,8 +98,25 @@ function showControls() {
   document.getElementById('grpHeader').hidden    = !json.header;
   document.getElementById('grpRewards').hidden   = !json.rewards;
   document.getElementById('grpQuestCard').hidden = !json.questCard;
-  document.getElementById('grpButton').hidden    = !(json.buttonPrimary || json.buttonClaim || json.buttonClose);
+  const hasButtons = Boolean(json.buttonPrimary || json.buttonClaim || json.buttonClose);
+  document.getElementById('grpButtonType').hidden = !hasButtons;
+  document.getElementById('grpButton').hidden = !hasButtons;
   document.getElementById('grpProgress').hidden  = !(json.progressBg || json.progressFill || json.progressText);
+
+  // Show only button types included in the ZIP and select a valid default.
+  const buttonTypeGroup = document.querySelector('[data-group="buttonType"]');
+  const availableButtonTypes = [];
+  buttonTypeGroup.querySelectorAll('.chip').forEach(chip => {
+    const available = Boolean(json[chip.dataset.field]);
+    chip.hidden = !available;
+    if (available) availableButtonTypes.push(chip.dataset.value);
+  });
+  if (!availableButtonTypes.includes(previewState.buttonType)) {
+    previewState.buttonType = availableButtonTypes[0] ?? 'primary';
+  }
+  buttonTypeGroup.querySelectorAll('.chip').forEach(chip => {
+    chip.classList.toggle('active', chip.dataset.value === previewState.buttonType);
+  });
 
   // Dynamically load any Google Fonts referenced in the JSON
   loadFontsFromJson();
@@ -177,9 +195,12 @@ function render() {
     renderQuestDescription();
   }
   renderTimer();
-  renderButton(json.buttonClose,   'button-close',   1053);
-  renderButton(json.buttonClaim,   'button-claim',   1054);
-  renderButton(json.buttonPrimary, 'button-primary', 1055);
+  const selectedButton = {
+    primary: json.buttonPrimary,
+    claim: json.buttonClaim,
+    close: json.buttonClose,
+  }[previewState.buttonType];
+  renderButton(selectedButton, `button-${previewState.buttonType}`, 1055);
 }
 
 // ── Element helpers ───────────────────────────────────────────────────────────

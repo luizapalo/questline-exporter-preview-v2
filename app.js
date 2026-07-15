@@ -145,12 +145,11 @@ function render() {
   const fw = json.frameSize?.width  ?? 366;
   const fh = json.frameSize?.height ?? 661;
 
-  // Scale to fill the preview area (no upper cap — allows zooming above 1:1
-  // so the design looks proportionally similar to Figma at its natural zoom).
+  // Scale to fit the preview area (capped at 1 — never larger than native size).
   const area   = document.querySelector('.preview-area');
   const maxW   = area.clientWidth  - 48;
   const maxH   = area.clientHeight - 48;
-  const scale  = Math.min(maxW / fw, maxH / fh);
+  const scale  = Math.min(maxW / fw, maxH / fh, 1);
 
   frame.style.width  = `${fw}px`;
   frame.style.height = `${fh}px`;

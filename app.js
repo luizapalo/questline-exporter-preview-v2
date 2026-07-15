@@ -22,6 +22,7 @@ const previewState = {
 
 let json = null;       // parsed positions.json
 let imgUrls = {};      // filename → object URL
+let currentFrameScale = 1; // CSS transform scale applied to frameScaler
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 
@@ -150,6 +151,8 @@ function render() {
   const maxW   = area.clientWidth  - 48;
   const maxH   = area.clientHeight - 48;
   const scale  = Math.min(maxW / fw, maxH / fh, 1);
+
+  currentFrameScale = scale;
 
   frame.style.width  = `${fw}px`;
   frame.style.height = `${fh}px`;
@@ -580,13 +583,19 @@ function buildSVGTextEl(ts, fill, textContent, bounds, zIndex) {
 
   textEl.setAttribute('fill', `url(#${gradId})`);
 
-  // Stroke: SVG stroke is centered; with paint-order:stroke fill the inner half
-  // is covered by the fill, leaving the outer half visible.
-  // We use (width * 2) so the visible outer ring = the designed width.
-  // A minimum of 6 is enforced so a thin Figma stroke still reads clearly at preview scale.
+  // Figma "Outside" stroke: the full stroke width is drawn outside the glyph edge.
+  // SVG stroke is centered, so we double the width and use paint-order:stroke fill —
+  // the fill paints on top and covers the inner half, leaving the outer half visible.
+  //
+  // Scale compensation: the SVG lives inside a CSS-transformed container (frameScaler).
+  // A stroke of W design-units becomes W*scale CSS pixels after the transform.
+  // We divide by currentFrameScale so the visible outer stroke is always W CSS pixels,
+  // matching exactly what Figma renders at its Outside alignment.
   if (ts.stroke?.color) {
+    const designedWidth = ts.stroke.width ?? 1;
+    const svgStrokeWidth = (designedWidth * 2) / currentFrameScale;
     textEl.setAttribute('stroke', ts.stroke.color);
-    textEl.setAttribute('stroke-width', Math.max((ts.stroke.width ?? 1) * 2, 6));
+    textEl.setAttribute('stroke-width', svgStrokeWidth);
     textEl.setAttribute('paint-order', 'stroke fill');
   }
 
